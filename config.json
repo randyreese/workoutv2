@@ -1,0 +1,17 @@
+{
+    "constants": {
+        "cron_basalburn": 1531,
+        "fromdate": 20260101
+    },
+    "input_files": {
+        "wyze_scale": "scale.csv",
+        "garm_hrv": "hrv.csv",
+        "garm_intensity": "intensity.csv",
+        "garm_stress": "stress.csv",
+        "cron_carbs": "carbs.csv",
+        "cron_sleep": "sleep.csv",
+        "cron_dailysummary": "dailysummary.csv",
+        "cron_exercises": "exercises.csv",
+        "cron_biometrics": "biometrics.csv"
+    }
+}
