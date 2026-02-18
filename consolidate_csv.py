@@ -1,338 +1,328 @@
 #!/usr/bin/env python3
 """
-CSV Consolidation Script
-Consolidates multiple health tracking CSV files into a single output file.
+CSV Consolidation Script - VERSION 2
+Rules-driven consolidation of multiple health tracking data files.
 """
 
 import pandas as pd
 import json
-import os
 import re
 from datetime import datetime
 from pathlib import Path
 
 
 def load_config(config_path='config.json'):
-    """Load configuration file with input file mappings and constants."""
+    """Load configuration constants from config.json."""
     with open(config_path, 'r') as f:
         config = json.load(f)
-    return config['input_files'], config['constants']
+    return config['constants']
 
 
 def parse_date(date_str):
     """
-    Parse various date formats and return yyyymmdd format.
-    Handles formats like:
-    - 2025-01-07 00:00:00
-    - 2025-12-15
-    - Dec 10
-    - 12/10/2025
-    - 2026.01.01 11:58 AM
+    Parse various date formats and return YYYYMMDD string.
+    Handles:
+      2025-01-07 00:00:00
+      2025-12-15
+      12/10/2025  or  01/21/2026
+      2026.01.01 11:58 AM
+      Jan 21  or  Feb 1  (abbreviated month + day, year inferred)
     """
+    if pd.isna(date_str):
+        return None
     date_str = str(date_str).strip()
-    
-    # Try different date formats
+
     formats = [
-        '%Y-%m-%d %H:%M:%S',  # 2025-01-07 00:00:00
-        '%Y-%m-%d',            # 2025-12-15
-        '%m/%d/%Y',            # 12/10/2025
-        '%Y.%m.%d %I:%M %p',   # 2026.01.01 11:58 AM
+        '%Y-%m-%d %H:%M:%S',
+        '%Y-%m-%d',
+        '%m/%d/%Y',
+        '%Y.%m.%d %I:%M %p',
     ]
-    
     for fmt in formats:
         try:
-            dt = datetime.strptime(date_str, fmt)
-            return dt.strftime('%Y%m%d')
+            return datetime.strptime(date_str, fmt).strftime('%Y%m%d')
         except ValueError:
             continue
-    
-    # Handle "Dec 10" format - need to infer year
-    month_abbr = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
+
+    # Handle "Jan 21" / "Feb 1" abbreviated format - year inferred
+    month_abbr = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
                   'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
     for i, month in enumerate(month_abbr, 1):
         if date_str.startswith(month):
             try:
                 day = int(date_str.split()[1])
-                # Assume 2025 for Dec, 2026 for Jan (based on data pattern)
                 year = 2025 if month == 'Dec' else 2026
-                dt = datetime(year, i, day)
-                return dt.strftime('%Y%m%d')
+                return datetime(year, i, day).strftime('%Y%m%d')
             except (IndexError, ValueError):
                 continue
-    
+
     return None
 
 
 def strip_non_numeric(value):
-    """Strip non-numeric characters from values, keeping decimals and negatives."""
+    """Strip non-numeric characters, keeping decimal point and negative sign."""
     if pd.isna(value):
         return None
-    
-    value_str = str(value)
-    
-    # If value is '--' or similar, return None
-    if value_str.strip() in ['--', '- -', '']:
+    s = str(value).strip()
+    if s in ('--', '- -', '', 'nan'):
         return None
-    
-    # Extract numeric value (including decimal point and negative sign)
-    match = re.search(r'-?\d+\.?\d*', value_str)
+    match = re.search(r'-?\d+\.?\d*', s)
+    return float(match.group()) if match else None
+
+
+def convert_special01(value):
+    """
+    SPECIAL01: Convert '#h ##min' duration string to float hours.
+    Examples: '7h 4min' -> 7.0667, '7h 30min' -> 7.5, '8h 11min' -> 8.1833
+    """
+    if pd.isna(value):
+        return None
+    s = str(value).strip()
+    match = re.match(r'(\d+)h\s*(\d+)\s*min?', s, re.IGNORECASE)
     if match:
-        return float(match.group())
-    
-    return None
+        return round(int(match.group(1)) + int(match.group(2)) / 60, 4)
+    match = re.match(r'(\d+)h', s, re.IGNORECASE)
+    if match:
+        return float(match.group(1))
+    try:
+        return float(s)
+    except (ValueError, TypeError):
+        return None
 
 
-def process_carbs(file_path, prefix):
-    """Process carbs.csv file."""
-    df = pd.read_csv(file_path)
-    
-    # Parse dates
-    df['date'] = df['DateTime'].apply(parse_date)
-    
-    # Keep only Net Carbs column (excluding Blood Glucose and Fasting)
-    result = {
-        'date': df['date'],
-        f'{prefix}_net_carbs': df['Net Carbs'].apply(strip_non_numeric) if 'Net Carbs' in df.columns else None
-    }
-    
-    return pd.DataFrame(result)
+def convert_special02(value):
+    """SPECIAL02: Convert to float rounded to 1 decimal place."""
+    if pd.isna(value):
+        return None
+    try:
+        return round(float(str(value).strip()), 1)
+    except (ValueError, TypeError):
+        return None
 
 
-def process_hrv(file_path, prefix):
-    """Process hrv.csv file."""
-    df = pd.read_csv(file_path)
-    
-    # Parse dates
-    df['date'] = df['Date'].apply(parse_date)
-    
-    # Process numeric columns
-    numeric_cols = ['Overnight HRV', 'Baseline', '7d Avg']
-    
-    result = {'date': df['date']}
-    for col in numeric_cols:
-        if col in df.columns:
-            col_name = col.lower().replace(' ', '_').replace('d', 'day')
-            result[f'{prefix}_{col_name}'] = df[col].apply(strip_non_numeric)
-    
-    return pd.DataFrame(result)
+def apply_rule(value, rule):
+    """Apply a column rule to a single value. Returns converted value or None."""
+    if rule == 'NUM':
+        if pd.isna(value):
+            return None
+        try:
+            return float(str(value).strip())
+        except (ValueError, TypeError):
+            return None
+    elif rule == 'STRIPNUM':
+        return strip_non_numeric(value)
+    elif rule in ('CHAR', 'TIME'):
+        if pd.isna(value):
+            return None
+        s = str(value).strip()
+        return s if s not in ('', 'nan') else None
+    elif rule == 'SPECIAL01':
+        return convert_special01(value)
+    elif rule == 'SPECIAL02':
+        return convert_special02(value)
+    return None  # IGNORE or unrecognised
 
 
-def process_intensity(file_path, prefix):
-    """Process intensity.csv file."""
-    # Read with proper header handling
-    df = pd.read_csv(file_path, skiprows=1)
-    
-    # The columns after skiprows should be: date, Actual, Value
-    df.columns = ['date', 'actual', 'value']
-    
-    # Parse dates
-    df['date'] = df['date'].apply(parse_date)
-    
-    # Process only the 'actual' column (excluding 'value')
-    result = {
-        'date': df['date'],
-        f'{prefix}_actual': df['actual'].apply(strip_non_numeric)
-    }
-    
-    return pd.DataFrame(result)
+def read_rules_file(rules_path):
+    """
+    Parse a rules.csv or rules.xlsx file.
+
+    Row Rule values (first column of rules file):
+      X  - Extraneous row in data file, skip
+      H  - Header row; column names taken as-is
+      C  - Header row with corrections; names prefixed '_' get the _ stripped
+      R  - Column processing rules (not a data row)
+      S  - Sample data in rules file only, ignored
+
+    Returns:
+      skip_count  number of X rows before the header in the data file
+      col_names   list of corrected column names (from H or C row)
+      col_rules   dict of col_name -> rule string
+      date_col    name of the column with DATEKEY rule
+    """
+    path = Path(rules_path)
+    if path.suffix == '.xlsx':
+        df = pd.read_excel(rules_path, header=None, dtype=str)
+    else:
+        df = pd.read_csv(rules_path, header=None, dtype=str)
+
+    skip_count = 0
+    col_names = None
+    col_rules = {}
+    date_col = None
+
+    for _, row in df.iterrows():
+        row_rule = str(row.iloc[0]).strip() if pd.notna(row.iloc[0]) else ''
+
+        if row_rule == 'X':
+            if col_names is None:   # only count X rows that precede the header
+                skip_count += 1
+
+        elif row_rule in ('H', 'C'):
+            col_names = []
+            for val in row.iloc[1:]:
+                name = str(val).strip() if (pd.notna(val) and str(val) != 'nan') else ''
+                col_names.append(name[1:] if name.startswith('_') else name)
+
+        elif row_rule == 'R':
+            if col_names is None:
+                continue
+            for i, val in enumerate(row.iloc[1:]):
+                if i >= len(col_names):
+                    break
+                rule = str(val).strip() if (pd.notna(val) and str(val) != 'nan') else 'IGNORE'
+                col_rules[col_names[i]] = rule
+                if rule == 'DATEKEY':
+                    date_col = col_names[i]
+        # S rows: sample data documentation only, skip
+
+    return skip_count, col_names, col_rules, date_col
 
 
-def process_scale(file_path, prefix):
-    """Process scale.csv file."""
-    # Skip first row which is a header description
-    df = pd.read_csv(file_path, skiprows=1)
-    
-    # Parse dates from "Date and Time" column
-    df['date'] = df['Date and Time'].apply(parse_date)
-    
-    # Define numeric columns to keep (excluding the ones we don't want)
-    numeric_cols = ['Weight(lb)', 'BMI', 'Body Fat', 'BMR']
-    
-    result = {'date': df['date']}
-    for col in numeric_cols:
-        if col in df.columns:
-            col_name = col.lower().replace('(', '_').replace(')', '').replace(' ', '_').replace('%', 'pct')
-            result[f'{prefix}_{col_name}'] = df[col].apply(strip_non_numeric)
-    
-    return pd.DataFrame(result)
+def read_data_file(file_path, skip_count, col_names):
+    """
+    Read a CSV or XLSX data file.
+    Skips the first skip_count rows, treats the next row as the header,
+    then renames columns using the corrected names from the rules file.
+    """
+    path = Path(file_path)
+    read_kwargs = dict(skiprows=skip_count, header=0, dtype=str)
+
+    if path.suffix == '.xlsx':
+        df = pd.read_excel(file_path, **read_kwargs)
+    else:
+        df = pd.read_csv(file_path, **read_kwargs)
+
+    # Rename up to the number of columns defined in the rules
+    n = min(len(col_names), len(df.columns))
+    df = df.rename(columns={df.columns[i]: col_names[i] for i in range(n)})
+
+    return df
 
 
-def process_sleep(file_path, prefix):
-    """Process sleep.csv file."""
-    df = pd.read_csv(file_path)
-    
-    # The second column "REM Sleep (x)" contains dates
-    date_col = 'REM Sleep (x)'
-    df['date'] = df[date_col].apply(parse_date)
-    
-    # Extract numeric values from the (y) columns
-    result = {'date': df['date']}
-    
-    # REM Sleep (y), Light Sleep (y), Deep Sleep (y)
-    sleep_types = [
-        ('REM Sleep (y)', 'rem_sleep'),
-        ('Light Sleep (y)', 'light_sleep'),
-        ('Deep Sleep (y)', 'deep_sleep')
-    ]
-    
-    for orig_col, new_col in sleep_types:
-        if orig_col in df.columns:
-            result[f'{prefix}_{new_col}'] = df[orig_col].apply(strip_non_numeric)
-    
-    return pd.DataFrame(result)
+def process_folder(folder_path, constants):
+    """
+    Process all data files in a folder using its rules file.
+    Returns a DataFrame with 'date' and folder-prefixed output columns, or None.
 
+    Special case: the 'exercises' folder aggregates Calories Burned per day
+    and adds cron_basalburn (abs(sum(calories)) + basal_burn).
+    """
+    folder_path = Path(folder_path)
+    folder_name = folder_path.name
 
-def process_stress(file_path, prefix):
-    """Process stress.csv file."""
-    df = pd.read_csv(file_path)
-    
-    # First column (unnamed) contains dates
-    date_col = df.columns[0]
-    df['date'] = df[date_col].apply(parse_date)
-    
-    result = {'date': df['date']}
-    result[f'{prefix}_stress'] = df['Stress'].apply(strip_non_numeric)
-    
-    return pd.DataFrame(result)
-
-
-def process_dailysummary(file_path, prefix):
-    """Process dailysummary.csv file."""
-    df = pd.read_csv(file_path)
-    
-    # Parse dates
-    df['date'] = df['Date'].apply(parse_date)
-    
-    # Extract only the Energy (kcal) column
-    result = {
-        'date': df['date'],
-        f'{prefix}_energy': df['Energy (kcal)'].apply(strip_non_numeric) if 'Energy (kcal)' in df.columns else None
-    }
-    
-    return pd.DataFrame(result)
-
-
-def process_exercises(file_path, prefix, basal_burn):
-    """Process exercises.csv file - sum calories burned per day and add basal burn."""
-    df = pd.read_csv(file_path)
-    
-    # Parse dates
-    df['date'] = df['Day'].apply(parse_date)
-    
-    # Strip non-numeric characters and convert to numeric
-    df['calories_numeric'] = df['Calories Burned'].apply(strip_non_numeric)
-    
-    # Group by date and sum the calories burned
-    grouped = df.groupby('date')['calories_numeric'].sum().reset_index()
-    
-    # Change sign from negative to positive and add basal burn constant
-    grouped[f'{prefix}_caloriesburned'] = grouped['calories_numeric'].apply(
-        lambda x: abs(x) + basal_burn if pd.notna(x) else None
+    # Locate rules file (csv preferred over xlsx)
+    rules_file = next(
+        (folder_path / f'rules.{ext}' for ext in ('csv', 'xlsx')
+         if (folder_path / f'rules.{ext}').exists()),
+        None
     )
-    
-    result = grouped[['date', f'{prefix}_caloriesburned']]
-    
-    return pd.DataFrame(result)
+    if rules_file is None:
+        print(f"Warning: No rules file in '{folder_name}', skipping")
+        return None
 
+    skip_count, col_names, col_rules, date_col = read_rules_file(rules_file)
 
-def process_biometrics(file_path, prefix):
-    """Process biometrics.csv file - extract Sleep Score (Garmin)."""
-    df = pd.read_csv(file_path)
-    
-    # Parse dates
-    df['date'] = df['Day'].apply(parse_date)
-    
-    # Filter for Sleep Score (Garmin) rows only
-    sleep_score_df = df[df['Metric'] == 'Sleep Score (Garmin)'].copy()
-    
-    # Extract the Amount column
-    sleep_score_df[f'{prefix}_sleepscore'] = sleep_score_df['Amount'].apply(strip_non_numeric)
-    
-    result = sleep_score_df[['date', f'{prefix}_sleepscore']]
-    
-    return pd.DataFrame(result)
+    if not col_names or not date_col:
+        print(f"Warning: Rules file in '{folder_name}' has no header or DATEKEY, skipping")
+        return None
+
+    # Collect data files (all .csv/.xlsx except rules.*)
+    data_files = sorted(
+        f for f in folder_path.iterdir()
+        if f.is_file()
+        and f.stem.lower() != 'rules'
+        and f.suffix in ('.csv', '.xlsx')
+    )
+    if not data_files:
+        print(f"Warning: No data files in '{folder_name}', skipping")
+        return None
+
+    print(f"Processing folder: {folder_name}")
+    all_dfs = []
+    for data_file in data_files:
+        print(f"  Reading {data_file.name}")
+        try:
+            df = read_data_file(data_file, skip_count, col_names)
+        except Exception as e:
+            print(f"  Warning: Could not read {data_file.name}: {e}")
+            continue
+
+        if date_col not in df.columns:
+            print(f"  Warning: Date column '{date_col}' not found in {data_file.name}, skipping")
+            continue
+
+        result = {'date': df[date_col].apply(parse_date)}
+        for col, rule in col_rules.items():
+            if rule in ('DATEKEY', 'IGNORE') or col not in df.columns:
+                continue
+            result[f'{folder_name}_{col}'] = df[col].apply(lambda v, r=rule: apply_rule(v, r))
+
+        all_dfs.append(pd.DataFrame(result))
+
+    if not all_dfs:
+        return None
+
+    combined = pd.concat(all_dfs, ignore_index=True).drop_duplicates()
+
+    # Special aggregation for exercises folder
+    if folder_name == 'exercises':
+        cal_col = f'{folder_name}_Calories Burned'
+        if cal_col in combined.columns:
+            basal_burn = constants['cron_basalburn']
+            combined[cal_col] = pd.to_numeric(combined[cal_col], errors='coerce')
+            combined = combined.groupby('date')[cal_col].sum().reset_index()
+            combined[cal_col] = combined[cal_col].apply(
+                lambda x: abs(x) + basal_burn if pd.notna(x) else None
+            )
+
+    return combined
 
 
 def consolidate_csv_files():
-    """Main function to consolidate all CSV files."""
-    # Load configuration
-    input_files, constants = load_config()
-    basal_burn = constants['cron_basalburn']
+    """Discover input sub-folders, process each, merge on date, and write output."""
+    constants = load_config()
     from_date = constants['fromdate']
-    
-    # Define input and output directories
+
     input_dir = Path('input')
     output_dir = Path('output')
-    
-    # Create output directory if it doesn't exist
     output_dir.mkdir(exist_ok=True)
-    
-    # Process each file based on its type
+
     dataframes = []
-    
-    processors = {
-        'cron_carbs': lambda fp, prefix: process_carbs(fp, prefix),
-        'garm_hrv': lambda fp, prefix: process_hrv(fp, prefix),
-        'garm_intensity': lambda fp, prefix: process_intensity(fp, prefix),
-        'wyze_scale': lambda fp, prefix: process_scale(fp, prefix),
-        'cron_sleep': lambda fp, prefix: process_sleep(fp, prefix),
-        'garm_stress': lambda fp, prefix: process_stress(fp, prefix),
-        'cron_dailysummary': lambda fp, prefix: process_dailysummary(fp, prefix),
-        'cron_exercises': lambda fp, prefix: process_exercises(fp, prefix, basal_burn),
-        'cron_biometrics': lambda fp, prefix: process_biometrics(fp, prefix)
-    }
-    
-    for prefix, filename in input_files.items():
-        file_path = input_dir / filename
-        
-        if not file_path.exists():
-            print(f"Warning: {file_path} not found, skipping...")
-            continue
-        
-        print(f"Processing {filename} with prefix '{prefix}'...")
-        
-        # Get the appropriate processor
-        processor = processors.get(prefix)
-        if processor:
-            df = processor(file_path, prefix)
-            dataframes.append(df)
-        else:
-            print(f"Warning: No processor found for prefix '{prefix}'")
-    
-    # Merge all dataframes on date
-    print("Consolidating data...")
-    if dataframes:
-        consolidated = dataframes[0]
-        for df in dataframes[1:]:
-            consolidated = consolidated.merge(df, on='date', how='outer')
-        
-        # Filter records to only include dates >= fromdate
-        consolidated['date'] = pd.to_numeric(consolidated['date'], errors='coerce')
-        consolidated = consolidated[consolidated['date'] >= from_date]
-        
-        # Sort by date ascending
-        consolidated = consolidated.sort_values('date')
-        
-        # Sort columns alphabetically (keeping 'date' first)
-        cols = ['date'] + sorted([col for col in consolidated.columns if col != 'date'])
-        consolidated = consolidated[cols]
-        
-        # Generate output filename with today's date
-        today = datetime.now().strftime('%Y%m%d')
-        output_file = output_dir / f'output_{today}.csv'
-        
-        # Save to CSV
-        consolidated.to_csv(output_file, index=False)
-        print(f"\nConsolidation complete!")
-        print(f"Output saved to: {output_file}")
-        print(f"Total records: {len(consolidated)}")
-        
-        # Get date range (handle NaN values)
-        dates = consolidated['date'].dropna()
-        if len(dates) > 0:
-            print(f"Date range: {int(dates.min())} to {int(dates.max())}")
-    else:
+    for folder in sorted(input_dir.iterdir()):
+        if folder.is_dir():
+            df = process_folder(folder, constants)
+            if df is not None:
+                dataframes.append(df)
+
+    if not dataframes:
         print("Error: No data to consolidate")
+        return
+
+    print("\nMerging all folders...")
+    consolidated = dataframes[0]
+    for df in dataframes[1:]:
+        consolidated = consolidated.merge(df, on='date', how='outer')
+
+    # Filter by fromdate, sort
+    consolidated['date'] = pd.to_numeric(consolidated['date'], errors='coerce')
+    consolidated = consolidated[consolidated['date'] >= from_date]
+    consolidated = consolidated.sort_values('date')
+
+    # Alphabetical column order (date first)
+    cols = ['date'] + sorted(c for c in consolidated.columns if c != 'date')
+    consolidated = consolidated[cols]
+
+    today = datetime.now().strftime('%Y%m%d')
+    output_file = output_dir / f'output_{today}.csv'
+    consolidated.to_csv(output_file, index=False)
+
+    print(f"\nConsolidation complete!")
+    print(f"Output: {output_file}")
+    print(f"Records: {len(consolidated)}")
+    dates = consolidated['date'].dropna()
+    if len(dates) > 0:
+        print(f"Date range: {int(dates.min())} to {int(dates.max())}")
 
 
 if __name__ == '__main__':

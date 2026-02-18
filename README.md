@@ -1,140 +1,127 @@
-# CSV Consolidation Script
+# CSV Consolidation Script - VERSION 2
 
 ## Overview
-This script consolidates nine health tracking CSV files into a single output file with standardized date formats and column naming.
+This script consolidates health tracking data from multiple sources into a single output CSV with standardized date formats and column naming.
 
 ## Folder Structure
 ```
-.
-├── consolidate_csv.py    # Main Python script
-├── config.json           # Configuration file with input file mappings and constants
-├── input/                # Place your input CSV files here
-│   ├── carbs.csv
-│   ├── hrv.csv
-│   ├── intensity.csv
-│   ├── scale.csv
-│   ├── sleep.csv
-│   ├── stress.csv
-│   ├── dailysummary.csv
-│   ├── exercises.csv
-│   └── biometrics.csv
-└── output/               # Consolidated output files will be saved here
-    └── output_YYYYMMDD.csv
++---archive             # ignored unless directed
++---claude              # ignored unless directed
++---input               # one sub-folder per data category
+|   +---dailysummary
+|   +---exercises
+|   +---hrv
+|   +---intensity
+|   +---scale
+|   +---sleep
+|   +---sleepchart
+|   +---stress
++---output              # consolidated output files saved here
++---requirements        # ignored unless directed
 ```
+
+## Data Input Files
+
+1. Each data category folder under `/input` contains a `rules.csv` (or `rules.xlsx`) and one or more data input files.
+2. Both `.csv` and `.xlsx` formats are supported for rules files and data files.
+3. Any sub-folders under `/input` are processed automatically; the list can grow or shrink without code changes.
+4. When a folder contains multiple data input files, all are processed and merged. Exact duplicate rows are dropped. Exercise calories aggregation is applied after deduplication.
+5. New date formats introduced by data files are added to the `parse_date` function as needed.
+
+## Rules Files
+
+Each data category folder contains a `rules.csv` (or `rules.xlsx`) that controls processing.
+
+### Column 0 — Row Rule
+
+The first column of every row in the rules file specifies how the corresponding row in the data file(s) should be treated:
+
+| Row Rule | Meaning |
+|----------|---------|
+| `X` | Extraneous row in data file — skip it |
+| `H` | Header row — column names used as-is |
+| `C` | Header row with corrections — column names prefixed with `_` have the `_` stripped before use |
+| `R` | Column rules row (see below) — not a data row |
+| `S` | Sample data — present in rules file for reference only, not a data row |
+
+### Columns 1+ — Column Rules (R row)
+
+The `R` row defines how each column of the data file is processed. The column layout matches the data file, shifted one column right to accommodate the Row Rule in column 0.
+
+| Column Rule | Meaning |
+|-------------|---------|
+| `DATEKEY` | Date column — apply date format conversion |
+| `NUM` | Numeric — convert to float |
+| `IGNORE` | Exclude from processing and output |
+| `STRIPNUM` | Strip non-numeric characters (except `.` and `-`) and convert to float |
+| `CHAR` | String value — pass through as-is |
+| `TIME` | Time value — pass through as string (military hh:mm) |
+| `SPECIAL01` | Convert `"#h ##min"` duration to float hours. Example: `7h 30min` → `7.5` |
+| `SPECIAL02` | Convert to float rounded to 1 decimal place |
+
+## Output Files
+
+- Output is written to `output/output_YYYYMMDD.csv` where the date is today.
+- Column names are prefixed with the source folder name followed by `_`. Example: `hrv_Overnight HRV`.
+- All columns except `date` are sorted alphabetically.
+- Only columns without an `IGNORE` rule are included.
 
 ## Configuration
 
-The `config.json` file contains constants and input file mappings:
+The `config.json` file at the project root contains runtime constants:
 
 ```json
 {
     "constants": {
         "cron_basalburn": 1531,
         "fromdate": 20260101
-    },
-    "input_files": {
-        "wyze_scale": "scale.csv",
-        "garm_hrv": "hrv.csv",
-        "garm_intensity": "intensity.csv",
-        "garm_stress": "stress.csv",
-        "cron_carbs": "carbs.csv",
-        "cron_sleep": "sleep.csv",
-        "cron_dailysummary": "dailysummary.csv",
-        "cron_exercises": "exercises.csv",
-        "cron_biometrics": "biometrics.csv"
     }
 }
 ```
 
 ### Constants
-- **cron_basalburn**: Base metabolic rate added to exercise calories
-- **fromdate**: Starting date filter (YYYYMMDD format) - only records on or after this date are included
+- **cron_basalburn**: Basal metabolic rate added to exercise calories burned
+- **fromdate**: Start date filter in YYYYMMDD format — only records on or after this date are included
 
 ## Features
 
-1. **Date Standardization**: All dates are converted to `YYYYMMDD` format
-2. **Multiple Date Format Support**: Handles various input date formats:
-   - `2025-01-07 00:00:00`
-   - `2025-12-15`
-   - `Dec 10`
-   - `12/10/2025`
-   - `2026.01.01 11:58 AM`
-
-3. **Numeric Value Cleaning**: Strips non-numeric characters (like "ms", "lb", "%", "--")
-4. **Column Prefixing**: Each column is prefixed with its source constant (e.g., `wyze_scale_weight_lb`)
-5. **Null Handling**: Missing dates or invalid values result in null entries
-6. **Date Filtering**: Only includes records from `fromdate` onwards
-7. **Alphabetical Column Sorting**: All columns (except date) are sorted alphabetically
-8. **Aggregation**: Exercises calories are summed per day, converted to positive, and added to basal burn
-9. **Filtering**: Extracts specific metrics (e.g., Sleep Score from biometrics)
+1. **Rules-driven**: All column handling is defined in per-folder rules files — no hardcoded column logic
+2. **Date Standardization**: All dates are converted to `YYYYMMDD` integer format
+3. **Multiple Date Format Support**: Handles various input date formats including abbreviated month names (`Jan 21`)
+4. **Multiple Input Files**: All data files in a folder are merged; exact duplicates are dropped
+5. **Null Handling**: Missing dates or invalid values produce null entries
+6. **Date Filtering**: Only records from `fromdate` onwards are included
+7. **Alphabetical Column Sorting**: All output columns (except `date`) are sorted alphabetically
 
 ## Special Processing
 
-### Daily Summary
-- Extracts `Energy (kcal)` column
-
 ### Exercises
-- Sums all `Calories Burned` values for each date
-- Converts from negative to positive
-- Adds the `cron_basalburn` constant
+- All `Calories Burned` values for a given date are summed across all exercise rows
+- Result is converted to positive and `cron_basalburn` is added
 - Formula: `abs(sum(Calories Burned)) + cron_basalburn`
-
-### Biometrics
-- Filters rows where `Metric` equals "Sleep Score (Garmin)"
-- Extracts the `Amount` value
-
-## Output Columns
-
-The output includes only these columns (alphabetically sorted after date):
-- `date`
-- `cron_biometrics_sleepscore`
-- `cron_carbs_net_carbs`
-- `cron_dailysummary_energy`
-- `cron_exercises_caloriesburned`
-- `cron_sleep_deep_sleep`
-- `cron_sleep_light_sleep`
-- `cron_sleep_rem_sleep`
-- `garm_hrv_7day_avg`
-- `garm_hrv_baseline`
-- `garm_hrv_overnight_hrv`
-- `garm_intensity_actual`
-- `garm_stress_stress`
-- `wyze_scale_bmi`
-- `wyze_scale_bmr`
-- `wyze_scale_body_fat`
-- `wyze_scale_weight_lb`
 
 ## Usage
 
-1. **Setup folder structure**:
+1. Place input data files in the appropriate sub-folder under `input/`
+2. Adjust `fromdate` in `config.json` if needed
+3. Run the script from the project root:
    ```bash
-   mkdir -p input output
+   python consolidate_csv.py
    ```
-
-2. **Place input CSV files** in the `input/` directory
-
-3. **Configure settings** in `config.json` if needed
-
-4. **Run the script**:
-   ```bash
-   python3 consolidate_csv.py
-   ```
-
-5. **Find output** in `output/output_YYYYMMDD.csv`
+4. Find the output in `output/output_YYYYMMDD.csv`
 
 ## Requirements
 
 - Python 3.6+
-- pandas library
+- pandas
+- openpyxl (for `.xlsx` support)
 
-Install requirements:
 ```bash
-pip install pandas
+pip install pandas openpyxl
 ```
 
 ## Notes
 
-- The script handles missing data gracefully - if a date doesn't exist in a source file, those columns will be null
-- Time components are ignored; only one record per date is created
+- Missing data is handled gracefully — if a date has no entry in a source folder, those columns will be null for that date
+- Time components in date values are ignored; one output row is produced per date
 - The output filename includes today's date for versioning
-- Records before the `fromdate` constant are automatically excluded
