@@ -1,0 +1,14 @@
+﻿Date,Overnight HRV,Baseline,7d Avg
+DATEKEY,STRIPNUM,IGNORE,STRIPNUM
+,,,
+21-Jan,35ms,32ms - 40ms,36ms
+22-Jan,33ms,32ms - 40ms,35ms
+23-Jan,36ms,32ms - 40ms,36ms
+24-Jan,30ms,32ms - 40ms,35ms
+25-Jan,32ms,33ms - 40ms,34ms
+26-Jan,34ms,33ms - 40ms,34ms
+27-Jan,31ms,33ms - 40ms,33ms
+28-Jan,32ms,33ms - 40ms,32ms
+29-Jan,36ms,34ms - 40ms,33ms
+30-Jan,37ms,33ms - 40ms,33ms
+31-Jan,36ms,33ms - 40ms,34ms

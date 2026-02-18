@@ -1,0 +1,34 @@
+ "input_files": {
+
+        "wyze_scale": "scale.csv", FROM APP, VIA EMAIL, Scale settings gear, export data, custom dates
+
+       
+        
+       https://connect.garmin.com/app/report/51/wellness/last_four_weeks
+       Intensity Minutes.csv ACTUAL AND TARGET
+
+       
+       https://connect.garmin.com/app/report/-34/all/last_four_weeks
+       HRV Status.csv MULTIPLE NUMBERS
+
+
+       https://connect.garmin.com/app/report/63/wellness/last_four_weeks
+        "garm_stress": "stress.csv", ONE NUMBER
+        
+       https://connect.garmin.com/app/sleep/0
+       sleep.csv EVERYTHING 4 wks
+
+        https://cronometer.com/#account
+
+        "cron_dailysummary": "dailysummary.csv", dailysummary - ENERGY(CAL IN), NET CARBS
+        "cron_exercises": "exercises.csv", exercises CALORIES BURNED
+       NOT USED UNLESS WYZE DATA APPEARS  "cron_biometrics": "biometrics.csv", biometrics, Sleep (Garmin), Sleep Score (Garmin)
+
+       https://cronometer.com/#charts
+
+        "cron_sleep": "chart.csv", SLEEP STAGES
+       
+
+
+        
+    

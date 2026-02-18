@@ -1,0 +1,16 @@
+When you start the new conversation, just say something like:
+
+"This is a fork of the workout health tracking project (original: https://github.com/randyreese/workout). I want to enhance it with [your specific enhancements here - e.g., 'visualization, data validation, web interface', etc.]"
+
+That's it! I'll be able to:
+
+Read the files in the repo to understand the codebase
+See your git history
+Pick up where we left off
+Optional but helpful:
+If you know which enhancements you want (from the list I mentioned earlier or your own ideas), have those ready. Otherwise, we can discuss options when you're ready.
+
+One small tip: When you open workoutv2 in VSCode, you might want to close the modelproject workspace first, or use "File → Open Folder" to switch workspaces cleanly.
+
+You're all set! See you in the workoutv2 conversation whenever you're ready to start enhancing. 👍
+
