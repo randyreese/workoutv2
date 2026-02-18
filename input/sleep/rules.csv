@@ -1,11 +1,10 @@
-﻿Sleep Score 4 Weeks,Score,Resting Heart Rate,Body Battery,Pulse Ox,Respiration,HRV Status,Quality,Duration,Sleep Need,Bedtime,Wake Time
-DATEKEY,NUM,NUM,NUM,NUM,NUM,NUM,CHAR,SPECIAL,SPECIAL,CHAR,CHAR
-,,,,,,,,,,,
-2/16/2026,67,59,26,96.25,17.1,34,Fair,7h 4min,7h 30min,10:12 PM,5:32 AM
-2/15/2026,76,60,28,95.49,17.9,34,Fair,7h 48min,7h 30min,9:53 PM,5:59 AM
-2/14/2026,78,57,33,96.12,14.75,34,Fair,7h 51min,7h 30min,10:31 PM,7:01 AM
-2/13/2026,76,59,35,95.13,16.48,34,Fair,7h 55min,7h 30min,9:56 PM,6:22 AM
-2/12/2026,72,56,35,95.43,17.1,34,Fair,7h 59min,7h 30min,10:22 PM,6:53 AM
-2/11/2026,80,58,40,94.54,17.1,34,Good,7h 1min,7h 30min,11:03 PM,6:28 AM
-2/10/2026,68,61,31,94.57,16.96,34,Fair,8h 11min,7h 0min,10:06 PM,6:32 AM
-2/9/2026,76,58,36,96.22,16.94,34,Fair,8h 14min,7h 30min,9:52 PM,6:22 AM
+﻿H,Sleep Score 4 Weeks,Score,Resting Heart Rate,Body Battery,Pulse Ox,Respiration,HRV Status,Quality,Duration,Sleep Need,Bedtime,Wake Time
+R,DATEKEY,NUM,NUM,NUM,NUM,NUM,NUM,CHAR,SPECIAL01,SPECIAL01,CHAR,CHAR
+S,2/16/2026,67,59,26,96.25,17.1,34,Fair,7h 4min,7h 30min,10:12 PM,5:32 AM
+S,2/15/2026,76,60,28,95.49,17.9,34,Fair,7h 48min,7h 30min,9:53 PM,5:59 AM
+S,2/14/2026,78,57,33,96.12,14.75,34,Fair,7h 51min,7h 30min,10:31 PM,7:01 AM
+S,2/13/2026,76,59,35,95.13,16.48,34,Fair,7h 55min,7h 30min,9:56 PM,6:22 AM
+S,2/12/2026,72,56,35,95.43,17.1,34,Fair,7h 59min,7h 30min,10:22 PM,6:53 AM
+S,2/11/2026,80,58,40,94.54,17.1,34,Good,7h 1min,7h 30min,11:03 PM,6:28 AM
+S,2/10/2026,68,61,31,94.57,16.96,34,Fair,8h 11min,7h 0min,10:06 PM,6:32 AM
+S,2/9/2026,76,58,36,96.22,16.94,34,Fair,8h 14min,7h 30min,9:52 PM,6:22 AM

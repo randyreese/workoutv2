@@ -1,14 +1,13 @@
-Day,Time,Group,Exercise,Minutes,Calories Burned
-DATEKEY,IGNORE,IGNORE,IGNORE,IGNORE,NUM
-,,,,,
-12/24/2025,,Device Data,Daily Activity (Garmin),210,-668
-12/24/2025,7:56 AM,Device Data,Walking (Garmin),63.4,-206.57
-12/24/2025,3:10 PM,Device Data,Walking (Garmin),26.283333333333335,-90.05
-12/24/2025,6:00 PM,Device Data,Indoor cardio (Garmin),31.55,-228.45
-12/25/2025,,Device Data,Daily Activity (Garmin),166,-575
-12/25/2025,8:17 AM,Device Data,Walking (Garmin),45.7,-164.4
-12/25/2025,1:41 PM,Device Data,Walking (Garmin),28.233333333333334,-105.97
-12/25/2025,5:10 PM,Device Data,Indoor cardio (Garmin),30.283333333333335,-228.79
-12/26/2025,,Device Data,Daily Activity (Garmin),141,-513
-12/26/2025,8:29 AM,Device Data,Walking (Garmin),58.75,-191.52
-12/26/2025,1:38 PM,Device Data,Walking (Garmin),35.083333333333336,-145.69
+H,Day,Time,Group,Exercise,Minutes,Calories Burned
+R,DATEKEY,IGNORE,IGNORE,IGNORE,IGNORE,NUM
+S,12/24/2025,,Device Data,Daily Activity (Garmin),210,-668
+S,12/24/2025,7:56 AM,Device Data,Walking (Garmin),63.4,-206.57
+S,12/24/2025,3:10 PM,Device Data,Walking (Garmin),26.283333333333335,-90.05
+S,12/24/2025,6:00 PM,Device Data,Indoor cardio (Garmin),31.55,-228.45
+S,12/25/2025,,Device Data,Daily Activity (Garmin),166,-575
+S,12/25/2025,8:17 AM,Device Data,Walking (Garmin),45.7,-164.4
+S,12/25/2025,1:41 PM,Device Data,Walking (Garmin),28.233333333333334,-105.97
+S,12/25/2025,5:10 PM,Device Data,Indoor cardio (Garmin),30.283333333333335,-228.79
+S,12/26/2025,,Device Data,Daily Activity (Garmin),141,-513
+S,12/26/2025,8:29 AM,Device Data,Walking (Garmin),58.75,-191.52
+S,12/26/2025,1:38 PM,Device Data,Walking (Garmin),35.083333333333336,-145.69
