@@ -1,6 +1,7 @@
 {
     "constants": {
         "cron_basalburn": 1531,
-        "fromdate": 20260101
+        "fromdate": 20260101,
+        "interpolate_scale_weight": "Yes"
     }
 }

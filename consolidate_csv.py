@@ -313,6 +313,19 @@ def consolidate_csv_files():
     cols = ['date'] + sorted(c for c in consolidated.columns if c != 'date')
     consolidated = consolidated[cols]
 
+    # Optional linear interpolation of scale_Weight(lb) between real readings
+    if constants.get('interpolate_scale_weight', 'No').strip().lower() == 'yes':
+        col = 'scale_Weight(lb)'
+        if col in consolidated.columns:
+            consolidated[col] = pd.to_numeric(consolidated[col], errors='coerce')
+            dt_idx = pd.to_datetime(consolidated['date'].astype(int).astype(str), format='%Y%m%d')
+            s = pd.Series(consolidated[col].values, index=dt_idx)
+            s = s.interpolate(method='time', limit_area='inside').round(1)
+            consolidated[col] = s.values
+            print("Interpolated missing values in 'scale_Weight(lb)'")
+        else:
+            print("Warning: 'scale_Weight(lb)' not found, skipping interpolation")
+
     today = datetime.now().strftime('%Y%m%d')
     output_file = output_dir / f'output_{today}.csv'
     consolidated.to_csv(output_file, index=False)

@@ -1,10 +1,12 @@
 # CSV Consolidation Script - VERSION 2
 
 ## Overview
+
 This script consolidates health tracking data from multiple sources into a single output CSV with standardized date formats and column naming.
 
 ## Folder Structure
-```
+
+```text
 +---archive             # ignored unless directed
 +---claude              # ignored unless directed
 +---input               # one sub-folder per data category
@@ -37,7 +39,7 @@ Each data category folder contains a `rules.csv` (or `rules.xlsx`) that controls
 The first column of every row in the rules file specifies how the corresponding row in the data file(s) should be treated:
 
 | Row Rule | Meaning |
-|----------|---------|
+| -------- | ------- |
 | `X` | Extraneous row in data file — skip it |
 | `H` | Header row — column names used as-is |
 | `C` | Header row with corrections — column names prefixed with `_` have the `_` stripped before use |
@@ -49,7 +51,7 @@ The first column of every row in the rules file specifies how the corresponding 
 The `R` row defines how each column of the data file is processed. The column layout matches the data file, shifted one column right to accommodate the Row Rule in column 0.
 
 | Column Rule | Meaning |
-|-------------|---------|
+| ----------- | ------- |
 | `DATEKEY` | Date column — apply date format conversion |
 | `NUM` | Numeric — convert to float |
 | `IGNORE` | Exclude from processing and output |
@@ -74,14 +76,17 @@ The `config.json` file at the project root contains runtime constants:
 {
     "constants": {
         "cron_basalburn": 1531,
-        "fromdate": 20260101
+        "fromdate": 20260101,
+        "interpolate_scale_weight": "Yes"
     }
 }
 ```
 
 ### Constants
+
 - **cron_basalburn**: Basal metabolic rate added to exercise calories burned
 - **fromdate**: Start date filter in YYYYMMDD format — only records on or after this date are included
+- **interpolate_scale_weight**: `"Yes"` or `"No"` — when `Yes`, linearly interpolates missing `scale_Weight(lb)` values between real weigh-in readings. Only fills gaps that have a real reading on both sides; no extrapolation beyond the first or last reading.
 
 ## Features
 
@@ -96,18 +101,25 @@ The `config.json` file at the project root contains runtime constants:
 ## Special Processing
 
 ### Exercises
+
 - All `Calories Burned` values for a given date are summed across all exercise rows
 - Result is converted to positive and `cron_basalburn` is added
 - Formula: `abs(sum(Calories Burned)) + cron_basalburn`
 
+### Scale Weight Interpolation
+
+When `interpolate_scale_weight` is `"Yes"`, missing `scale_Weight(lb)` values are filled by linear interpolation between the two nearest real weigh-in readings. Gaps with no real reading on one side (before the first or after the last reading) are left empty.
+
 ## Usage
 
 1. Place input data files in the appropriate sub-folder under `input/`
-2. Adjust `fromdate` in `config.json` if needed
+2. Adjust constants in `config.json` if needed
 3. Run the script from the project root:
+
    ```bash
    python consolidate_csv.py
    ```
+
 4. Find the output in `output/output_YYYYMMDD.csv`
 
 ## Requirements
